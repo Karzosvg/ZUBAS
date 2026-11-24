@@ -36,18 +36,21 @@ COPY --from=proto-builder /usr/libs/messages/src ./libs/messages/src
 COPY play ./play
 COPY --from=proto-builder /usr/src/generated play/src/messages/generated
 ENV NODE_ENV=production
-RUN --mount=type=secret,id=SENTRY_RELEASE \
-    --mount=type=secret,id=SENTRY_URL \
-    --mount=type=secret,id=SENTRY_AUTH_TOKEN \
-    --mount=type=secret,id=SENTRY_ORG \
-    --mount=type=secret,id=SENTRY_PROJECT \
-    --mount=type=secret,id=SENTRY_ENVIRONMENT \
-    export SENTRY_RELEASE=$(cat /run/secrets/SENTRY_RELEASE) && \
-    export SENTRY_URL=$(cat /run/secrets/SENTRY_URL) && \
-    export SENTRY_AUTH_TOKEN=$(cat /run/secrets/SENTRY_AUTH_TOKEN) && \
-    export SENTRY_ORG=$(cat /run/secrets/SENTRY_ORG) && \
-    export SENTRY_PROJECT=$(cat /run/secrets/SENTRY_PROJECT) && \
-    export SENTRY_ENVIRONMENT=$(cat /run/secrets/SENTRY_ENVIRONMENT) && \
+# Sentry build secrets are optional: when they are not provided (e.g. builders
+# without BuildKit secret support such as Railway), the exports fall back to
+# empty values and the vite build runs with the Sentry plugin disabled.
+RUN --mount=type=secret,id=SENTRY_RELEASE,required=false \
+    --mount=type=secret,id=SENTRY_URL,required=false \
+    --mount=type=secret,id=SENTRY_AUTH_TOKEN,required=false \
+    --mount=type=secret,id=SENTRY_ORG,required=false \
+    --mount=type=secret,id=SENTRY_PROJECT,required=false \
+    --mount=type=secret,id=SENTRY_ENVIRONMENT,required=false \
+    export SENTRY_RELEASE=$(cat /run/secrets/SENTRY_RELEASE 2>/dev/null || echo "") && \
+    export SENTRY_URL=$(cat /run/secrets/SENTRY_URL 2>/dev/null || echo "") && \
+    export SENTRY_AUTH_TOKEN=$(cat /run/secrets/SENTRY_AUTH_TOKEN 2>/dev/null || echo "") && \
+    export SENTRY_ORG=$(cat /run/secrets/SENTRY_ORG 2>/dev/null || echo "") && \
+    export SENTRY_PROJECT=$(cat /run/secrets/SENTRY_PROJECT 2>/dev/null || echo "") && \
+    export SENTRY_ENVIRONMENT=$(cat /run/secrets/SENTRY_ENVIRONMENT 2>/dev/null || echo "") && \
     export NODE_OPTIONS="$NODE_OPTIONS" && \
     cd play && \
     npm run typesafe-i18n && \

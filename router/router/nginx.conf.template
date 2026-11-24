@@ -1,0 +1,74 @@
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    '' close;
+}
+
+server {
+    listen ${PORT};
+    server_name _;
+
+    client_max_body_size 100m;
+
+    location = /router-health {
+        return 200 "ok\n";
+    }
+
+    # Pusher websocket endpoint (long-lived connections)
+    location /ws/ {
+        proxy_pass http://${PLAY_WS_UPSTREAM};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # Back API (strip the /api prefix)
+    location /api/ {
+        proxy_pass http://${BACK_UPSTREAM}/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Map-storage API (strip the /map-storage prefix)
+    location /map-storage/ {
+        proxy_pass http://${MAP_STORAGE_UPSTREAM}/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Icon server (strip the /icon prefix)
+    location /icon/ {
+        proxy_pass http://${ICON_UPSTREAM}/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Starter maps bundled into this image
+    location /maps/ {
+        alias /usr/share/nginx/html/maps/;
+        expires 1h;
+    }
+
+    # Everything else: the play web server (front + pusher HTTP API)
+    location / {
+        proxy_pass http://${PLAY_UPSTREAM};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
